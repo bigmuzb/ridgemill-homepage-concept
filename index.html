@@ -292,6 +292,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     const resourceScript = '<script>window.__resources = ' +
       JSON.stringify(resourceMap).replace(/<\//g, '<\\/') +
       ';</' + 'script>';
+    const projectImageScript = '<script>(function(){' +
+      'function hydrate(){document.querySelectorAll("img[data-project-src]").forEach(function(img){var src=img.getAttribute("data-project-src")||"";if(src.indexOf("{{")<0){img.src=src;img.removeAttribute("data-project-src");}})}' +
+      'new MutationObserver(hydrate).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["data-project-src"]});hydrate();' +
+      '})();</' + 'script>';
     const responsiveHead = '<title>Ridgemill Homepage Concept</title>' +
       '<meta name="robots" content="noindex, nofollow, noarchive">' +
       '<link rel="icon" href="data:,">' +
@@ -333,13 +337,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     const headOpen = template.match(/<head[^>]*>/i);
     if (headOpen) {
       const i = headOpen.index + headOpen[0].length;
-      template = template.slice(0, i) + resourceScript + responsiveHead + template.slice(i);
+      template = template.slice(0, i) + resourceScript + projectImageScript + responsiveHead + template.slice(i);
     }
 
     // Parse the template and swap the root element. Scripts inserted via
     // DOMParser/replaceWith are inert per spec — re-create each with
     // createElement so they execute, awaiting onload for src scripts to
     // preserve ordering (React before ReactDOM before Babel before text/babel).
+    // Avoid a transient request for the raw loop placeholder before the
+    // component runtime resolves it. The head observer restores each
+    // resolved project image to a normal src attribute immediately.
+    template = template.replace(/src="\{\{ p\.img \}\}"/g, 'data-project-src="{{ p.img }}"');
     const doc = new DOMParser().parseFromString(template, 'text/html');
     document.documentElement.replaceWith(doc.documentElement);
 
